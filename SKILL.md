@@ -99,7 +99,7 @@ ffmpeg -y -i out/video.mp4 -vf "fps=12,scale=960:-1:flags=lanczos" -c:v gif out/
 
 ## Phase 5: Social Distribution
 
-See [references/social-distribution.md](references/social-distribution.md) for full platform guides.
+See [references/social-distribution.md](references/social-distribution.md) for copy patterns and [references/social-publishing.md](references/social-publishing.md) for CLI/MCP tool setup.
 
 ### X Thread (5-8 tweets)
 1. **Hook** — surprising stat, contrarian claim, or earned insight (50% of effort here)
@@ -108,11 +108,22 @@ See [references/social-distribution.md](references/social-distribution.md) for f
 7. **Strongest evidence**
 8. **CTA** — link, follow, or question
 
+**Publishing:** Use `xurl` CLI or Twitter MCP server to post directly.
+```bash
+xurl post "1/7 — [Hook tweet text]"
+xurl media upload hero-image.png  # returns MEDIA_ID
+xurl post "2/7 — [Context]" --media-id MEDIA_ID
+```
+
 ### Instagram Carousel (8-12 slides, 1080x1350px)
 Use `/pencil` to design slides. Cover → Problem → Insights (1/slide) → Stat → Summary → CTA.
 
+**Publishing:** Use Instagram MCP server (ig-mcp) or Meta Graph API.
+
 ### LinkedIn Post
 Hook in first 210 chars. 2-3 paragraphs + bullet list + CTA. 3-5 hashtags.
+
+**Publishing:** Use LinkedIn MCP server (linkedin-mcp) or REST API with OAuth token.
 
 ## Phase 6: Deploy
 
@@ -137,6 +148,9 @@ gh pr create --title "content: {short title}" --body "..."
 ├─ NARRATIVE ─────────────────────────────────────────────────────┤
 │  references/storytelling.md   references/social-distribution.md  │
 │  references/visual-content.md                                    │
+├─ PUBLISH ───────────────────────────────────────────────────────┤
+│  xurl (X CLI)    twitter-mcp-server    linkedin-mcp              │
+│  ig-mcp          Ayrshare MCP (multi-platform)                   │
 ├─ DEPLOY ────────────────────────────────────────────────────────┤
 │  git + gh CLI    /vercel-cli    Vercel preview CI/CD             │
 └─────────────────────────────────────────────────────────────────┘
@@ -147,3 +161,4 @@ gh pr create --title "content: {short title}" --body "..."
 - [references/storytelling.md](references/storytelling.md) — narrative frameworks with examples
 - [references/visual-content.md](references/visual-content.md) — image placement, optimization, GIF vs video
 - [references/social-distribution.md](references/social-distribution.md) — platform copy patterns, carousels, atomization
+- [references/social-publishing.md](references/social-publishing.md) — CLI tools, MCP servers, OAuth setup for X, LinkedIn, Instagram
