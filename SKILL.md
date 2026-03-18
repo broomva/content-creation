@@ -69,6 +69,41 @@ Closing (memorable one-liner)
 - `/frontend-design` — custom visual components
 - `/arcan-glass` — BroomVA brand styling
 
+### AI-Generated Assets
+
+See [references/ai-video-generation.md](references/ai-video-generation.md) for full API details, code examples, and Remotion integration patterns.
+
+**Image generation (Nano Banana / Gemini):**
+```bash
+# CLI: quick hero images, social cards, diagrams
+nano-banana "A hero image for {topic}, dark theme, glass effects, 1080x1080"
+# SDK: @google/genai with model "gemini-3.1-flash-image" (Nano Banana 2)
+# MCP: @aeven/nanobanana-mcp for Claude Code integration
+```
+
+**Video generation (Veo 3.1):**
+```bash
+# MCP server for Claude Code
+uvx mcp-veo3 --output-dir assets/ai-clips/
+# SDK: @google/genai with model "veo-3.1-generate-preview"
+# Capabilities: 4K, native audio, image-to-video, frame interpolation
+# Duration: 4-8s per clip, chain up to 20 extensions (~148s)
+```
+
+**Multi-provider (fal.ai):**
+```bash
+# Single API for Veo 3.1, Sora 2 Pro, Kling 3 Pro, 600+ models
+bun add @fal-ai/client
+# Swap models by changing endpoint string, no code changes
+```
+
+**Preprocessing AI clips for Remotion (critical):**
+```bash
+ffmpeg -i ai_clip.mp4 -c:v libx264 -crf 18 -movflags +faststart -r 30 processed.mp4
+```
+
+### Manual Asset Pipeline
+
 **Image pipeline:**
 ```bash
 magick input.png -resize 1200x -quality 85 output-opt.png
@@ -90,6 +125,33 @@ Title (3-4s) → Stats (3s) → Screenshots (2-3s each) → Workflow (3-4s) → 
 ```
 
 **Key Remotion rules:** Use `Img` + `staticFile()` (never `<img>`). Use `spring()` for organic motion. Use `Sequence` with `premountFor`. No CSS transitions or Tailwind animation classes.
+
+### Hybrid AI + Remotion Pipeline
+
+Combine AI-generated footage with Remotion motion graphics for production-quality output:
+
+```
+Nano Banana → hero images, backgrounds, social cards
+Veo 3.1 → cinematic B-roll clips (8s each, 4K, with audio)
+Remotion → motion graphics, titles, transitions, data viz
+FFmpeg → preprocess AI clips, final GIF conversion
+```
+
+**In Remotion compositions:**
+```tsx
+// AI-generated video as background layer
+<OffthreadVideo src={staticFile("assets/veo-clip.mp4")} style={{ objectFit: "cover" }} />
+
+// AI-generated image
+<Img src={staticFile("assets/nano-banana-hero.png")} />
+
+// Dynamic duration from AI clips
+// Use @remotion/media-parser parseMedia() with calculateMetadata
+```
+
+**Use `<TransitionSeries>` from `@remotion/transitions`** to blend AI clips with motion graphics scenes via fade/wipe/slide transitions.
+
+### Render Commands
 
 ```bash
 cd /tmp/{project}-remotion && bun install
@@ -140,11 +202,17 @@ gh pr create --title "content: {short title}" --body "..."
 ```
 ┌─ RESEARCH ──────────────────────────────────────────────────────┐
 │  /deep-research    /agent-browser    /competitor-intel    curl   │
+├─ AI GENERATION ─────────────────────────────────────────────────┤
+│  Nano Banana (@google/genai)   Veo 3.1 (@google/genai)          │
+│  fal.ai (@fal-ai/client)      ElevenLabs (voiceover)            │
+│  nano-banana CLI               mcp-veo3 (MCP server)            │
+│  @aeven/nanobanana-mcp         veo-mcp-server                   │
 ├─ DESIGN ────────────────────────────────────────────────────────┤
 │  /pencil (MCP)   /before-and-after   /frontend-design           │
 │  /arcan-glass    magick/ffmpeg                                   │
 ├─ VIDEO ─────────────────────────────────────────────────────────┤
 │  /remotion-best-practices   /skills-showcase   /json-render-remotion │
+│  @remotion/media-parser     @remotion/transitions                │
 ├─ NARRATIVE ─────────────────────────────────────────────────────┤
 │  references/storytelling.md   references/social-distribution.md  │
 │  references/visual-content.md                                    │
@@ -162,3 +230,4 @@ gh pr create --title "content: {short title}" --body "..."
 - [references/visual-content.md](references/visual-content.md) — image placement, optimization, GIF vs video
 - [references/social-distribution.md](references/social-distribution.md) — platform copy patterns, carousels, atomization
 - [references/social-publishing.md](references/social-publishing.md) — CLI tools, MCP servers, OAuth setup for X, LinkedIn, Instagram
+- [references/ai-video-generation.md](references/ai-video-generation.md) — Nano Banana, Veo 3.1, Remotion integration, fal.ai multi-provider
