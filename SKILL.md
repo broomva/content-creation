@@ -1,15 +1,101 @@
 ---
 name: content-creation
-description: "Full-stack content creation pipeline: from idea to published blog post, video, and social media distribution. Orchestrates research, storytelling, visual assets, Remotion video, and social copy into a complete content package. Use when: (1) creating a new blog post, case study, or writing entry, (2) turning an idea or experience into a structured narrative, (3) generating visual content (screenshots, GIFs, video) to accompany a post, (4) creating social media content (X threads, Instagram carousels) from long-form writing, (5) packaging and distributing content across platforms. Triggers on: 'new post', 'blog post', 'case study', 'content creation', 'write about', 'create content', 'content pipeline', 'publish post', 'social content from post'."
+description: "Full-stack content creation pipeline: from idea or reference to published blog post, video, and social media distribution. Orchestrates research, reference extraction, storytelling, AI-generated visual assets (Nano Banana, Veo 3.1), Remotion video, and social copy into a complete content package. Use when: (1) creating a new blog post, case study, or writing entry, (2) turning an idea or experience into a structured narrative, (3) using a reference post/video (X, LinkedIn, YouTube) as creative inspiration, (4) generating visual content (AI images, AI video clips, screenshots, GIFs) to accompany a post, (5) creating social media content (X threads, Instagram carousels) from long-form writing, (6) packaging and distributing content across platforms. Triggers on: 'new post', 'blog post', 'case study', 'content creation', 'write about', 'create content', 'content pipeline', 'publish post', 'social content from post', 'use this as reference', 'make something like this'."
 ---
 
 # Content Creation Pipeline
 
-Six-phase workflow: idea → published multimedia content package with social distribution.
+Seven-phase workflow: reference/idea → published multimedia content package with social distribution.
 
 ```
-RESEARCH → NARRATIVE → VISUAL ASSETS → VIDEO → SOCIAL → DEPLOY
+REFERENCE (optional) → RESEARCH → NARRATIVE → VISUAL ASSETS → VIDEO → SOCIAL → DEPLOY
 ```
+
+## Phase 0: Reference Extraction (when user provides a link)
+
+When the user provides a URL to a post, video, or thread as creative reference, extract and analyze it before anything else. See [references/x-content-extraction.md](references/x-content-extraction.md) and [references/reference-based-content-creation.md](references/reference-based-content-creation.md) for full details.
+
+### Step 1: Extract content from the link
+
+**X/Twitter posts** (fastest — no auth required):
+```bash
+# Extract tweet text, images, video URLs, engagement metrics
+TWEET_ID="2034332847893574080"  # from the URL path
+curl -s "https://api.fxtwitter.com/status/$TWEET_ID" | jq .
+
+# Download video directly
+yt-dlp "https://x.com/user/status/$TWEET_ID" -o reference_video.mp4
+
+# Or via FxTwitter direct download
+curl -sL "https://d.fxtwitter.com/user/status/$TWEET_ID" -o reference_video.mp4
+```
+
+**YouTube / other platforms:**
+```bash
+yt-dlp "URL" -o reference_video.mp4
+```
+
+**Any URL with agent-browser** (screenshot + text extraction):
+```bash
+agent-browser open "URL" && agent-browser wait --load networkidle
+agent-browser screenshot reference_screenshot.png --full
+agent-browser get text body > reference_text.txt
+```
+
+### Step 2: Analyze with Gemini (video understanding + style extraction)
+
+Upload the downloaded video to Gemini for deep analysis:
+
+```typescript
+import { GoogleGenAI } from "@google/genai";
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const file = await ai.files.upload({ file: "reference_video.mp4", config: { mimeType: "video/mp4" } });
+
+const analysis = await ai.models.generateContent({
+  model: "gemini-2.5-flash",
+  contents: [
+    { fileData: { fileUri: file.uri, mimeType: file.mimeType } },
+    { text: `Analyze this video as a content creation reference. Extract:
+1. Visual Style: color palette (hex values), lighting, camera angles, framing
+2. Pacing: shot durations, rhythm, fast/slow sections with timestamps
+3. Transitions: types used (cuts, fades, zooms) and when
+4. Text Overlays: fonts, positioning, animation, timing
+5. Structure: hook (first 3s), body, CTA placement
+6. Audio: music style, SFX, voiceover style
+7. Engagement Hooks: techniques for retention
+Return as structured JSON.` },
+  ],
+});
+```
+
+For **text/image posts**, use Gemini or Claude directly on the extracted text + screenshot to analyze hook type, structure, messaging, and CTA pattern.
+
+### Step 3: Generate a style brief
+
+The analysis produces a **style brief** that guides all downstream phases:
+- **Narrative phase**: match hook type, structure, CTA pattern
+- **Visual phase**: match color palette, typography, layout
+- **Video phase**: match pacing, transitions, aspect ratio, duration
+- **Social phase**: match platform conventions and engagement patterns
+
+### Multimodal Embedding (for similarity search)
+
+Use Gemini Embedding 2 to find similar content in your library:
+
+```typescript
+// Embed a reference video into the same space as your content
+const embedding = await ai.models.embedContent({
+  model: "gemini-embedding-2-preview",
+  contents: [{ inlineData: { mimeType: "video/mp4", data: videoBase64 } }],
+  config: { outputDimensionality: 768 },
+});
+// Compare with cosine similarity against your content embeddings
+```
+
+Supports text, images, video (up to 120s), audio (up to 80s), and PDFs in a single vector space.
+
+---
 
 ## Phase 1: Research
 
@@ -23,6 +109,7 @@ Gather evidence, capture production state, pull metrics. Never write without dat
 - [ ] Production screenshots captured (full-page + detail)
 - [ ] Metrics pulled from APIs (never fabricate numbers)
 - [ ] Target audience and their concerns identified
+- [ ] Reference post analyzed (if provided) — style brief generated
 
 ## Phase 2: Narrative
 
@@ -200,7 +287,11 @@ gh pr create --title "content: {short title}" --body "..."
 ## Dependency Map
 
 ```
-┌─ RESEARCH ──────────────────────────────────────────────────────┐
+┌─ REFERENCE EXTRACTION ──────────────────────────────────────────┐
+│  FxTwitter API (no auth)  yt-dlp    /agent-browser               │
+│  TweetSave MCP            Gemini 2.5 (video understanding)       │
+│  Gemini Embedding 2 (multimodal similarity)                      │
+├─ RESEARCH ──────────────────────────────────────────────────────┤
 │  /deep-research    /agent-browser    /competitor-intel    curl   │
 ├─ AI GENERATION ─────────────────────────────────────────────────┤
 │  Nano Banana (@google/genai)   Veo 3.1 (@google/genai)          │
@@ -231,3 +322,5 @@ gh pr create --title "content: {short title}" --body "..."
 - [references/social-distribution.md](references/social-distribution.md) — platform copy patterns, carousels, atomization
 - [references/social-publishing.md](references/social-publishing.md) — CLI tools, MCP servers, OAuth setup for X, LinkedIn, Instagram
 - [references/ai-video-generation.md](references/ai-video-generation.md) — Nano Banana, Veo 3.1, Remotion integration, fal.ai multi-provider
+- [references/x-content-extraction.md](references/x-content-extraction.md) — extracting text, images, video from X/Twitter posts (FxTwitter API, yt-dlp, TweetSave MCP)
+- [references/reference-based-content-creation.md](references/reference-based-content-creation.md) — style briefs, content templates, Gemini video analysis, multimodal embedding, end-to-end reference workflows
