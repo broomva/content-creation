@@ -11,6 +11,79 @@ Seven-phase workflow: reference/idea → published multimedia content package wi
 REFERENCE (optional) → RESEARCH → NARRATIVE → VISUAL ASSETS → VIDEO → SOCIAL → DEPLOY
 ```
 
+## Setup & Onboarding
+
+Before using the pipeline, the agent MUST check which tools are available and guide the user through setup for any missing ones. Run the checklist below at the start of every content creation session.
+
+### Prerequisite Check (run this first)
+
+```bash
+# Check what's already available
+echo "=== Required ==="
+which yt-dlp && echo "✓ yt-dlp" || echo "✗ yt-dlp — needed for video download"
+which ffmpeg && echo "✓ ffmpeg" || echo "✗ ffmpeg — needed for video processing"
+echo ""
+echo "=== API Keys ==="
+[ -n "$GEMINI_API_KEY" ] && echo "✓ GEMINI_API_KEY set" || echo "✗ GEMINI_API_KEY — needed for Nano Banana, Veo 3.1, Gemini analysis"
+[ -n "$FAL_KEY" ] && echo "✓ FAL_KEY set" || echo "✗ FAL_KEY — optional, for fal.ai multi-provider"
+[ -n "$ELEVENLABS_API_KEY" ] && echo "✓ ELEVENLABS_API_KEY set" || echo "✗ ELEVENLABS_API_KEY — optional, for voiceover"
+echo ""
+echo "=== Optional ==="
+which agent-browser && echo "✓ agent-browser" || echo "✗ agent-browser — optional, for screenshots"
+which nano-banana && echo "✓ nano-banana CLI" || echo "✗ nano-banana CLI — optional, Gemini SDK works without it"
+which xurl && echo "✓ xurl" || echo "✗ xurl — optional, for X posting"
+```
+
+### Tier 1: Core (required for any content creation)
+
+| Tool | Install | Purpose |
+|------|---------|---------|
+| **yt-dlp** | `brew install yt-dlp` | Download video from X, YouTube, any platform |
+| **ffmpeg** | `brew install ffmpeg` | Video processing, format conversion, GIF creation |
+| **Remotion** | `bun add remotion @remotion/cli` (per project) | Programmatic video composition |
+
+### Tier 2: AI Generation (required for AI-powered assets)
+
+| Tool | Setup | Purpose |
+|------|-------|---------|
+| **GEMINI_API_KEY** | Get free key at [aistudio.google.com](https://aistudio.google.com) → API keys | Nano Banana images, Veo 3.1 video, Gemini analysis, embeddings |
+| **@google/genai** | `bun add @google/genai` (per project) | SDK for all Gemini models |
+
+**How to get GEMINI_API_KEY:**
+1. Go to [aistudio.google.com](https://aistudio.google.com)
+2. Click "Get API key" → "Create API key"
+3. Set it: `export GEMINI_API_KEY="your-key"` (add to `.zshrc` for persistence)
+4. Free tier: ~500 image gen/day, video gen included, no credit card needed
+
+### Tier 3: Enhanced (optional, for specific features)
+
+| Tool | Setup | Purpose | When needed |
+|------|-------|---------|-------------|
+| **FAL_KEY** | Sign up at [fal.ai](https://fal.ai), get key from dashboard | Multi-provider: Veo, Sora, Kling via one API | When you want to swap between video models |
+| **ELEVENLABS_API_KEY** | Sign up at [elevenlabs.io](https://elevenlabs.io) | AI voiceover generation | When video needs narration |
+| **agent-browser** | `npm install -g @anthropic-ai/agent-browser` | Screenshots, web interaction | When capturing live app screenshots |
+| **nano-banana CLI** | `npm install -g @the-focus-ai/nano-banana` | Quick CLI image generation | Convenience; SDK works without it |
+| **xurl** | `brew install --cask xdevplatform/tap/xurl` | Post directly to X | When publishing X threads |
+| **TweetSave MCP** | `claude mcp add -s user tweetsave -- npx -y mcp-remote https://mcp.tweetsave.org/sse` | Read X posts from Claude Code | For reference extraction without yt-dlp |
+| **mcp-veo3** | `uvx mcp-veo3 --output-dir ~/Videos/Generated` | Veo 3.1 via MCP | When generating video from Claude Code |
+| **@aeven/nanobanana-mcp** | Add to Claude MCP config | Nano Banana via MCP | When generating images from Claude Code |
+
+### Agent Behavior
+
+When the skill is triggered, the agent should:
+
+1. **Run the prerequisite check** silently (don't dump output unless something is missing)
+2. **If critical tools are missing** (yt-dlp, ffmpeg, GEMINI_API_KEY), tell the user what's needed and offer to install/configure:
+   - For CLI tools: offer the `brew install` command
+   - For API keys: explain where to get them and how to set them
+   - For npm packages: offer to install in the current project
+3. **If optional tools are missing**, proceed without them and mention alternatives:
+   - No `agent-browser`? Use FxTwitter API + yt-dlp for extraction
+   - No `FAL_KEY`? Use `@google/genai` directly
+   - No `xurl`? Generate the post copy for manual publishing
+4. **Never fail silently** — if an API call fails due to missing key, explain which key is needed and how to get it
+5. **Adapt the pipeline** to available tools — use the best available method, not the ideal one
+
 ## Phase 0: Reference Extraction (when user provides a link)
 
 When the user provides a URL to a post, video, or thread as creative reference, extract and analyze it before anything else. See [references/x-content-extraction.md](references/x-content-extraction.md) and [references/reference-based-content-creation.md](references/reference-based-content-creation.md) for full details.
