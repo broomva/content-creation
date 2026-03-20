@@ -1,14 +1,14 @@
 ---
 name: content-creation
-description: "Full-stack content creation pipeline: from idea or reference to published blog post, video, and social media distribution. Orchestrates research, reference extraction, storytelling, AI-generated visual assets (Nano Banana, Veo 3.1), Remotion video, and social copy into a complete content package. Use when: (1) creating a new blog post, case study, or writing entry, (2) turning an idea or experience into a structured narrative, (3) using a reference post/video (X, LinkedIn, YouTube) as creative inspiration, (4) generating visual content (AI images, AI video clips, screenshots, GIFs) to accompany a post, (5) creating social media content (X threads, Instagram carousels) from long-form writing, (6) packaging and distributing content across platforms. Triggers on: 'new post', 'blog post', 'case study', 'content creation', 'write about', 'create content', 'content pipeline', 'publish post', 'social content from post', 'use this as reference', 'make something like this'."
+description: "Full-stack content creation pipeline: from idea or reference to published blog post, audio narration, video, and social media distribution. Orchestrates research, reference extraction, storytelling, AI-generated visual assets (Nano Banana, Veo 3.1), TTS audio narration (Voicebox, kokoro-tts, Edge TTS), Remotion video, and social copy into a complete content package. Use when: (1) creating a new blog post, case study, or writing entry, (2) turning an idea or experience into a structured narrative, (3) using a reference post/video (X, LinkedIn, YouTube) as creative inspiration, (4) generating visual content (AI images, AI video clips, screenshots, GIFs) to accompany a post, (5) generating audio narration for posts (TTS), (6) creating social media content (X threads, Instagram carousels) from long-form writing, (7) packaging and distributing content across platforms. Triggers on: 'new post', 'blog post', 'case study', 'content creation', 'write about', 'create content', 'content pipeline', 'publish post', 'social content from post', 'use this as reference', 'make something like this', 'generate audio', 'tts', 'narration'."
 ---
 
 # Content Creation Pipeline
 
-Seven-phase workflow: reference/idea → published multimedia content package with social distribution.
+Eight-phase workflow: reference/idea → published multimedia content package with social distribution.
 
 ```
-REFERENCE (optional) → RESEARCH → NARRATIVE → VISUAL ASSETS → VIDEO → SOCIAL → DEPLOY
+REFERENCE (optional) → RESEARCH → NARRATIVE → VISUAL ASSETS → AUDIO → VIDEO → SOCIAL → DEPLOY
 ```
 
 ## Setup & Onboarding
@@ -27,6 +27,11 @@ echo "=== API Keys ==="
 [ -n "$GEMINI_API_KEY" ] && echo "✓ GEMINI_API_KEY set" || echo "✗ GEMINI_API_KEY — needed for Nano Banana, Veo 3.1, Gemini analysis"
 [ -n "$FAL_KEY" ] && echo "✓ FAL_KEY set" || echo "✗ FAL_KEY — optional, for fal.ai multi-provider"
 [ -n "$ELEVENLABS_API_KEY" ] && echo "✓ ELEVENLABS_API_KEY set" || echo "✗ ELEVENLABS_API_KEY — optional, for voiceover"
+echo ""
+echo "=== TTS (Audio Narration) ==="
+which kokoro-tts && echo "✓ kokoro-tts" || echo "✗ kokoro-tts — pip install kokoro-tts"
+curl -sf http://localhost:17493/health > /dev/null 2>&1 && echo "✓ Voicebox server running" || echo "✗ Voicebox — optional, for premium TTS (voicebox.sh)"
+which edge-tts && echo "✓ edge-tts" || echo "✗ edge-tts — pip install edge-tts (fallback TTS)"
 echo ""
 echo "=== Optional ==="
 which agent-browser && echo "✓ agent-browser" || echo "✗ agent-browser — optional, for screenshots"
@@ -61,6 +66,9 @@ which xurl && echo "✓ xurl" || echo "✗ xurl — optional, for X posting"
 |------|-------|---------|-------------|
 | **FAL_KEY** | Sign up at [fal.ai](https://fal.ai), get key from dashboard | Multi-provider: Veo, Sora, Kling via one API | When you want to swap between video models |
 | **ELEVENLABS_API_KEY** | Sign up at [elevenlabs.io](https://elevenlabs.io) | AI voiceover generation | When video needs narration |
+| **kokoro-tts** | `pip install kokoro-tts` | CLI TTS generation (82M model) | Default audio narration for posts |
+| **Voicebox** | [voicebox.sh](https://voicebox.sh/) or `docker compose up` | Premium local TTS with voice cloning | When best quality audio needed |
+| **edge-tts** | `pip install edge-tts` | Microsoft Neural voices (free, unofficial) | Fallback when no GPU available |
 | **agent-browser** | `npm install -g @anthropic-ai/agent-browser` | Screenshots, web interaction | When capturing live app screenshots |
 | **nano-banana CLI** | `npm install -g @the-focus-ai/nano-banana` | Quick CLI image generation | Convenience; SDK works without it |
 | **xurl** | `brew install --cask xdevplatform/tap/xurl` | Post directly to X | When publishing X threads |
@@ -275,9 +283,46 @@ mkdir -p apps/chat/public/images/writing/{slug}/
 
 **Checklist:** Hero image/video, 1 image per section (5-7 min), 1+ animated GIF, all < 500KB, descriptive alt text.
 
-## Phase 4: Video
+## Phase 4: Audio Narration
 
-**Compounding skills:** `/remotion-best-practices` — read rules for animations, sequencing, transitions, images, text.
+Generate TTS audio for each post so readers can listen. Pre-generate at pipeline time, not on-demand. See [references/tts-audio-generation.md](references/tts-audio-generation.md) for full engine comparison, API details, and batch scripts.
+
+**Compounding skills:** `/openrocket-sim` (batch scripting patterns), `/remotion-best-practices` (media pipeline).
+
+### TTS Engine Selection
+
+| Engine | When to use |
+|--------|-------------|
+| **Voicebox** (localhost:17493) | Best quality. Voice cloning. GPU available. `POST /generate` → `GET /audio/{id}` |
+| **kokoro-tts** | Fast batch default. CLI-first. `kokoro-tts input.txt output.wav --voice af_sarah` |
+| **Edge TTS** | No local GPU. `edge-tts --text "..." --voice en-US-AndrewNeural --write-media out.mp3` |
+
+### Quick Generation
+
+```bash
+# Strip frontmatter from MDX, generate audio
+slug="my-post"
+sed '1{/^---$/!q;};1,/^---$/d' apps/chat/content/writing/$slug.mdx \
+  | kokoro-tts - /tmp/$slug.wav --voice af_sarah
+ffmpeg -i /tmp/$slug.wav -codec:a libmp3lame -b:a 128k apps/chat/public/audio/writing/$slug.mp3
+```
+
+### Integration
+
+1. Place MP3 at `public/audio/writing/{slug}.mp3`
+2. Add `audio: /audio/writing/{slug}.mp3` to post frontmatter
+3. `ContentArticle` component renders `<audio>` player with full controls (play/pause, seek, skip ±10s)
+4. Falls back to Web Speech API if no audio file
+
+**Checklist:**
+- [ ] TTS engine running (Voicebox server or kokoro-tts installed)
+- [ ] Audio generated and placed in `public/audio/writing/{slug}.mp3`
+- [ ] `audio` field added to post frontmatter
+- [ ] Audio plays correctly on the deployed page
+
+## Phase 5: Video
+
+**Compounding skills:** `/remotion-best-practices` — read rules for animations, sequencing, transitions, images, text. Audio from Phase 4 can be used as voiceover track in Remotion compositions.
 
 **Video structure (15-30s):**
 ```
@@ -319,7 +364,7 @@ npx remotion render {Id} --output out/video.mp4
 ffmpeg -y -i out/video.mp4 -vf "fps=12,scale=960:-1:flags=lanczos" -c:v gif out/video.gif
 ```
 
-## Phase 5: Social Distribution
+## Phase 6: Social Distribution
 
 See [references/social-distribution.md](references/social-distribution.md) for copy patterns and [references/social-publishing.md](references/social-publishing.md) for CLI/MCP tool setup.
 
@@ -347,7 +392,7 @@ Hook in first 210 chars. 2-3 paragraphs + bullet list + CTA. 3-5 hashtags.
 
 **Publishing:** Use LinkedIn MCP server (linkedin-mcp) or REST API with OAuth token.
 
-## Phase 6: Deploy
+## Phase 7: Deploy
 
 ```bash
 git checkout -b content/{slug}
@@ -371,6 +416,9 @@ gh pr create --title "content: {short title}" --body "..."
 │  fal.ai (@fal-ai/client)      ElevenLabs (voiceover)            │
 │  nano-banana CLI               mcp-veo3 (MCP server)            │
 │  @aeven/nanobanana-mcp         veo-mcp-server                   │
+├─ AUDIO (TTS) ──────────────────────────────────────────────────┤
+│  Voicebox (localhost:17493)  kokoro-tts CLI   edge-tts          │
+│  mlx-audio (Apple Silicon)   ffmpeg (WAV→MP3)                   │
 ├─ DESIGN ────────────────────────────────────────────────────────┤
 │  /pencil (MCP)   /before-and-after   /frontend-design           │
 │  /arcan-glass    magick/ffmpeg                                   │
@@ -397,3 +445,4 @@ gh pr create --title "content: {short title}" --body "..."
 - [references/ai-video-generation.md](references/ai-video-generation.md) — Nano Banana, Veo 3.1, Remotion integration, fal.ai multi-provider
 - [references/x-content-extraction.md](references/x-content-extraction.md) — extracting text, images, video from X/Twitter posts (FxTwitter API, yt-dlp, TweetSave MCP)
 - [references/reference-based-content-creation.md](references/reference-based-content-creation.md) — style briefs, content templates, Gemini video analysis, multimodal embedding, end-to-end reference workflows
+- [references/tts-audio-generation.md](references/tts-audio-generation.md) — TTS engine comparison (Voicebox, kokoro-tts, Edge TTS, cloud APIs), batch generation scripts, storage options, site integration
